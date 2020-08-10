@@ -13,6 +13,11 @@ type CreateGame struct {
 	SecretWord string `json:"secretWord"`
 }
 
+type JoinGame struct {
+	NickName string `json:"nickName"`
+	RoomName string `json:"roomName"`
+}
+
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		allowHeaders := "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization"
@@ -30,6 +35,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 func Socket() {
 
+	var games []CreateGame
+	var players []JoinGame
+
 	server, err := socketio.NewServer(nil)
 
 	if err != nil {
@@ -43,11 +51,12 @@ func Socket() {
 	})
 
 	server.OnEvent("/", "create-game", func(s socketio.Conn, msg CreateGame) {
-		fmt.Println("This get Called", msg)
+		games = append(games, CreateGame{RoomName: msg.RoomName, SecretWord: msg.SecretWord})
 	})
 
-	server.OnEvent("/", "join-game", func(s socketio.Conn, msg interface{}) {
-		fmt.Println("Join Event", msg)
+	server.OnEvent("/", "join-game", func(s socketio.Conn, msg JoinGame) {
+		players = append(players, JoinGame{NickName: msg.NickName, RoomName: msg.RoomName})
+		s.Emit("all-games", games)
 	})
 
 	server.OnError("/", func(s socketio.Conn, e error) {
