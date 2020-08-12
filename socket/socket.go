@@ -51,7 +51,11 @@ func Socket() {
 	})
 
 	server.OnEvent("/", "create-game", func(s socketio.Conn, msg CreateGame) {
-		games = append(games, CreateGame{RoomName: msg.RoomName, SecretWord: msg.SecretWord})
+		alreadyExists := contains(games, msg.RoomName)
+		fmt.Println("alreadyExists", alreadyExists)
+		if !alreadyExists {
+			games = append(games, CreateGame{RoomName: msg.RoomName, SecretWord: msg.SecretWord})
+		}
 	})
 
 	server.OnEvent("/", "join-game", func(s socketio.Conn, msg JoinGame) {
@@ -74,4 +78,13 @@ func Socket() {
 
 	log.Println("Serving at localhost:8000...")
 	log.Fatal(http.ListenAndServe(":8000", nil))
+}
+
+func contains(s []CreateGame, e string) bool {
+	for _, a := range s {
+		if a.RoomName == e {
+			return true
+		}
+	}
+	return false
 }
