@@ -52,10 +52,19 @@ func Socket() {
 
 	server.OnEvent("/", "create-game", func(s socketio.Conn, msg CreateGame) {
 		alreadyExists := contains(games, msg.RoomName)
-		fmt.Println("alreadyExists", alreadyExists)
 		if !alreadyExists {
 			games = append(games, CreateGame{RoomName: msg.RoomName, SecretWord: msg.SecretWord})
 		}
+	})
+
+	server.OnEvent("/", "check-rooms", func(s socketio.Conn, roomName string) {
+		var isExists bool
+		for _, name := range games {
+			if name.RoomName == roomName {
+				isExists = true
+			}
+		}
+		s.Emit("do-room-exists", isExists)
 	})
 
 	server.OnEvent("/", "join-game", func(s socketio.Conn, msg JoinGame) {
