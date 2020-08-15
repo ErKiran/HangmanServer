@@ -2,6 +2,7 @@ package socket
 
 import (
 	"fmt"
+	"hangman/middlewares"
 	"log"
 	"net/http"
 
@@ -18,25 +19,15 @@ type JoinGame struct {
 	RoomName string `json:"roomName"`
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		allowHeaders := "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization"
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, PUT, PATCH, GET, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Allow-Headers", allowHeaders)
-
-		next.ServeHTTP(w, r)
-	})
+type ConnectedUsers struct {
+	RoomName string   `json:"roomName"`
+	Players  []string `json:"players"`
 }
 
 func Socket() {
 
 	var games []CreateGame
-	var players []JoinGame
+	var connectedUsers []ConnectedUsers
 
 	server, err := socketio.NewServer(nil)
 
@@ -68,19 +59,25 @@ func Socket() {
 	})
 
 	server.OnEvent("/", "join-game", func(s socketio.Conn, msg JoinGame) {
-		players = append(players, JoinGame{NickName: msg.NickName, RoomName: msg.RoomName})
+		var players []string
+
+		if len(connectedUsers) == 0 {
+			connectedUsers = append(connectedUsers, ConnectedUsers{RoomName: msg.RoomName, Players: append(players, msg.NickName)})
+		}
+		for _, sockets := range connectedUsers {
+			if sockets.RoomName == msg.RoomName {
+				fmt.Println("Room Name Already Exists")
+				sockets.Players = append(sockets.Players, msg.NickName)
+				fmt.Println(sockets.Players)
+			} else {
+				connectedUsers = append(connectedUsers, ConnectedUsers{RoomName: msg.RoomName, Players: append(players, msg.NickName)})
+			}
+		}
+		fmt.Println("ConnectedUsers", connectedUsers)
 		s.Emit("all-games", games)
 	})
 
-	server.OnError("/", func(s socketio.Conn, e error) {
-		fmt.Println("meet error:", e)
-	})
-
-	server.OnDisconnect("/", func(s socketio.Conn, reason string) {
-		fmt.Println("closed", reason)
-	})
-
-	http.Handle("/socket.io/", corsMiddleware(server))
+	http.Handle("/socket.io/", middlewares.CorsMiddleware(server))
 
 	go server.Serve()
 	defer server.Close()
